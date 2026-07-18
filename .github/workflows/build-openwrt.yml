@@ -39,6 +39,9 @@ on:
         default: ""
         type: string
 
+permissions:
+  contents: write
+
 env:
   TZ: Asia/Ho_Chi_Minh
 
