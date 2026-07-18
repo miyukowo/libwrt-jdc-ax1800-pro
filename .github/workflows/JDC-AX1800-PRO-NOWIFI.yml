@@ -10,8 +10,8 @@ jobs:
     uses: ./.github/workflows/build-openwrt.yml
     secrets: inherit
     with:
-      repo_url: "https://github.com/LiBwrt/openwrt-6.x.git"
-      repo_branch: "main-nss"
+      repo_url: "https://github.com/LiBwrt/LibWrt.git"
+      repo_branch: "25.12-nss"
       config_file: "configs/jdc-ax1800-pro-nowifi.config"
       diy_script: "libwrt.sh"
       firmware_tag: "JDC-AX1800-PRO-IPQ60XX-6.12-NOWIFI"
