@@ -1,4 +1,4 @@
-name: JDC-AX1800-PRO-IPQ60XX-6.12-WIFI
+name: JDC-AX1800-PRO-IPQ60XX-6.12-NOWIFI
 
 on:
   workflow_dispatch:
@@ -12,9 +12,9 @@ jobs:
     with:
       repo_url: "https://github.com/LiBwrt/openwrt-6.x.git"
       repo_branch: "main-nss"
-      config_file: "configs/jdc-ax1800-pro-wifi.config"
+      config_file: "configs/jdc-ax1800-pro-nowifi.config"
       diy_script: "libwrt.sh"
-      firmware_tag: "JDC-AX1800-PRO-IPQ60XX-6.12-WIFI"
-      firmware_description: "6.12 kernel firmware with WIFI + Wired NSS support"
+      firmware_tag: "JDC-AX1800-PRO-IPQ60XX-6.12-NOWIFI"
+      firmware_description: "6.12 kernel firmware (Wired Only / No WIFI) + Wired NSS support"
       install_extra_packages: true
       kernel_version_file: "kernel-6.12"
