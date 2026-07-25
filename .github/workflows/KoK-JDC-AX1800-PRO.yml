@@ -14,5 +14,5 @@ jobs:
       diy_script: "libwrt.sh"
       firmware_tag: "KoK-JDC-AX1800-PRO-IPQ60XX-6.12-WIFI"
       firmware_description: "6.12 kernel firmware with WIFI + Wired NSS support (King-Of-Knights fork)"
-      install_extra_packages: true
+      install_extra_packages: false
       kernel_version_file: "kernel-6.12"
