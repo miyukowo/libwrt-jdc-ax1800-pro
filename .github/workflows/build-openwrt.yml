@@ -40,7 +40,8 @@ on:
         type: string
 
 permissions:
-  contents: write
+  contents: read
+  actions: read
 
 env:
   TZ: Asia/Ho_Chi_Minh
@@ -48,6 +49,12 @@ env:
 jobs:
   Build:
     runs-on: ubuntu-22.04
+    permissions:
+      contents: write
+      actions: write
+    concurrency:
+      group: build-${{ inputs.firmware_tag }}-${{ github.ref }}
+      cancel-in-progress: false
 
     steps:
     - name: Check Server Performance
@@ -94,44 +101,74 @@ jobs:
 
     - name: Checkout
       uses: actions/checkout@v4
+      with:
+        persist-credentials: false
 
     - name: Clone Source Code
+      env:
+        REPO_URL: ${{ inputs.repo_url }}
+        REPO_BRANCH: ${{ inputs.repo_branch }}
       run: |
         df -hT $GITHUB_WORKSPACE
-        git clone --depth 1 -b ${{ inputs.repo_branch }} ${{ inputs.repo_url }} openwrt
+        git clone --depth 1 -b "$REPO_BRANCH" --single-branch "$REPO_URL" openwrt
         cd openwrt
         echo "OPENWRT_PATH=$PWD" >> $GITHUB_ENV
         VERSION_INFO=$(git show -s --date=short --format="Author: %an<br/>Date: %cd<br/>Message: %s<br/>Hash: %H")
         echo "VERSION_INFO=$VERSION_INFO" >> $GITHUB_ENV
 
     - name: Extract Kernel Version
+      env:
+        KERNEL_VERSION_FILE: ${{ inputs.kernel_version_file }}
       run: |
         cd $OPENWRT_PATH
-        if [ -n "${{ inputs.kernel_version_file }}" ] && [ -f "target/linux/generic/${{ inputs.kernel_version_file }}" ]; then
-          VERSION_KERNEL=$(grep -oP 'LINUX_KERNEL_HASH-\K[0-9]+\.[0-9]+\.[0-9]+' "target/linux/generic/${{ inputs.kernel_version_file }}" || echo "unknown")
+        if [ -n "$KERNEL_VERSION_FILE" ] && [ -f "target/linux/generic/$KERNEL_VERSION_FILE" ]; then
+          VERSION_KERNEL=$(grep -oP 'LINUX_KERNEL_HASH-\K[0-9]+\.[0-9]+\.[0-9]+' "target/linux/generic/$KERNEL_VERSION_FILE" || echo "unknown")
         else
           VERSION_KERNEL="extracted-after-build"
         fi
         echo "VERSION_KERNEL=$VERSION_KERNEL" >> $GITHUB_ENV
 
     - name: Generate Variables
+      env:
+        REPO_URL: ${{ inputs.repo_url }}
+        REPO_BRANCH: ${{ inputs.repo_branch }}
+        CONFIG_FILE: ${{ inputs.config_file }}
       run: |
-        cp ${{ inputs.config_file }} $OPENWRT_PATH/.config
+        cp "$CONFIG_FILE" $OPENWRT_PATH/.config
         cd $OPENWRT_PATH
         make defconfig > /dev/null 2>&1
-        SOURCE_REPO="$(echo ${{ inputs.repo_url }} | awk -F '/' '{print $(NF)}')"
-        echo "SOURCE_REPO=$SOURCE_REPO" >> $GITHUB_ENV
-        DEVICE_TARGET=$(cat .config | grep CONFIG_TARGET_BOARD | awk -F '"' '{print $2}')
-        echo "DEVICE_TARGET=$DEVICE_TARGET" >> $GITHUB_ENV
-        DEVICE_SUBTARGET=$(cat .config | grep CONFIG_TARGET_SUBTARGET | awk -F '"' '{print $2}')
-        echo "DEVICE_SUBTARGET=$DEVICE_SUBTARGET" >> $GITHUB_ENV
+        SOURCE_REPO="${REPO_URL##*/}"
+        SOURCE_REPO="${SOURCE_REPO%.git}"
+        DEVICE_TARGET="$(awk -F '"' '/CONFIG_TARGET_BOARD/ {print $2; exit}' .config)"
+        DEVICE_SUBTARGET="$(awk -F '"' '/CONFIG_TARGET_SUBTARGET/ {print $2; exit}' .config)"
+        HASH="$(git log -1 --pretty=format:'%h')"
+        CACHE_PREFIX="${SOURCE_REPO}-${REPO_BRANCH}-${DEVICE_TARGET}-${DEVICE_SUBTARGET}"
+        CACHE_KEY="${CACHE_PREFIX}-${HASH}"
+        {
+          echo "SOURCE_REPO=$SOURCE_REPO"
+          echo "DEVICE_TARGET=$DEVICE_TARGET"
+          echo "DEVICE_SUBTARGET=$DEVICE_SUBTARGET"
+          echo "HASH=$HASH"
+          echo "CACHE_PREFIX=$CACHE_PREFIX"
+          echo "CACHE_KEY=$CACHE_KEY"
+        } >> $GITHUB_ENV
 
     - name: Cache Toolchain
-      uses: HiGarfield/cachewrtbuild@main
+      uses: actions/cache@v4
       with:
-        ccache: false
-        mixkey: ${{ env.SOURCE_REPO }}-${{ inputs.repo_branch }}-${{ env.DEVICE_TARGET }}-${{ env.DEVICE_SUBTARGET }}
-        prefix: ${{ env.OPENWRT_PATH }}
+        key: ${{ env.CACHE_KEY }}
+        restore-keys: |
+          ${{ env.CACHE_PREFIX }}-
+        path: |
+          ${{ env.OPENWRT_PATH }}/staging_dir
+
+    - name: Refresh The Cache
+      run: |
+        if [ -d "$OPENWRT_PATH/staging_dir" ]; then
+          find "$OPENWRT_PATH/staging_dir" -type d -name "stamp" -not -path "*target*" | while read -r dir; do
+            find "$dir" -type f -exec touch {} +
+          done
+        fi
 
     - name: Install Feeds
       run: |
@@ -146,20 +183,23 @@ jobs:
         ./scripts/feeds install -a
 
     - name: Load Custom Configuration
+      env:
+        CONFIG_FILE: ${{ inputs.config_file }}
+        DIY_SCRIPT: ${{ inputs.diy_script }}
       run: |
         [ -e files ] && mv files $OPENWRT_PATH/files
-        [ -e ${{ inputs.config_file }} ] && mv ${{ inputs.config_file }} $OPENWRT_PATH/.config
-        if [ -n "${{ inputs.diy_script }}" ] && [ -e "${{ inputs.diy_script }}" ]; then
-          chmod +x ${{ inputs.diy_script }}
+        [ -e "$CONFIG_FILE" ] && mv "$CONFIG_FILE" $OPENWRT_PATH/.config
+        if [ -n "$DIY_SCRIPT" ] && [ -e "$DIY_SCRIPT" ]; then
+          chmod +x "$DIY_SCRIPT"
           cd $OPENWRT_PATH
-          $GITHUB_WORKSPACE/${{ inputs.diy_script }}
+          "$GITHUB_WORKSPACE/$DIY_SCRIPT"
         fi
 
     - name: Download DL Packages
       run: |
         cd $OPENWRT_PATH
         make defconfig
-        make download -j8
+        make download -j$(nproc)
         find dl -size -1024c -exec ls -l {} \;
         find dl -size -1024c -exec rm -f {} \;
 
@@ -244,3 +284,20 @@ jobs:
         generateReleaseNotes: false
         makeLatest: legacy
         replacesArtifacts: true
+
+    - name: Delete Old Cache
+      if: steps.compile.outputs.status == 'success'
+      env:
+        GH_TOKEN: ${{ github.token }}
+      run: |
+        gh cache list --key "${CACHE_PREFIX}-" --json key --jq '.[].key' |
+          while read -r key; do
+            [ -n "$key" ] || continue
+            if [ "$key" != "$CACHE_KEY" ]; then
+              gh cache delete "$key" || true
+            fi
+          done
+        echo "========cache status========"
+        if [ -d "$OPENWRT_PATH/staging_dir" ]; then
+          echo "staging: $(du -sh "$OPENWRT_PATH/staging_dir" | cut -f 1)"
+        fi

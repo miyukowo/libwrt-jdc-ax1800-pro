@@ -1,0 +1,38 @@
+name: Trigger-All-Workflows
+
+on:
+  workflow_dispatch:
+    inputs:
+      jdc_ax1800_pro_wifi:
+        description: "Run JDC-AX1800-PRO (WiFi)"
+        required: false
+        type: boolean
+        default: true
+      jdc_ax1800_pro_nowifi:
+        description: "Run JDC-AX1800-PRO-NOWIFI"
+        required: false
+        type: boolean
+        default: true
+  schedule:
+    - cron: "0 12 * * 6"
+
+permissions:
+  contents: read
+  actions: read
+
+jobs:
+  JDC-AX1800-PRO:
+    if: ${{ github.event_name == 'schedule' || inputs.jdc_ax1800_pro_wifi }}
+    uses: ./.github/workflows/JDC-AX1800-PRO.yml
+    secrets: inherit
+    permissions:
+      contents: write
+      actions: write
+
+  JDC-AX1800-PRO-NOWIFI:
+    if: ${{ github.event_name == 'schedule' || inputs.jdc_ax1800_pro_nowifi }}
+    uses: ./.github/workflows/JDC-AX1800-PRO-NOWIFI.yml
+    secrets: inherit
+    permissions:
+      contents: write
+      actions: write

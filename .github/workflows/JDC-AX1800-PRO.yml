@@ -2,13 +2,19 @@ name: JDC-AX1800-PRO-IPQ60XX-6.12-WIFI
 
 on:
   workflow_dispatch:
-  schedule:
-    - cron: 0 12 * * 6
+  workflow_call:
+
+permissions:
+  contents: read
+  actions: read
 
 jobs:
   build:
     uses: ./.github/workflows/build-openwrt.yml
     secrets: inherit
+    permissions:
+      contents: write
+      actions: write
     with:
       repo_url: "https://github.com/LiBwrt/LibWrt.git"
       repo_branch: "25.12-nss"
