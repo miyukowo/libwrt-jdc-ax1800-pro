@@ -28,10 +28,12 @@ jobs:
         if: ${{ github.event_name == 'schedule' || inputs.jdc_ax1800_pro_wifi }}
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        run: gh workflow run JDC-AX1800-PRO.yml --ref "${{ github.ref_name }}"
+          GH_REPO: ${{ github.repository }}
+        run: gh workflow run JDC-AX1800-PRO.yml --repo "${{ github.repository }}" --ref "${{ github.ref_name }}"
 
       - name: Trigger JDC-AX1800-PRO-NOWIFI
         if: ${{ github.event_name == 'schedule' || inputs.jdc_ax1800_pro_nowifi }}
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        run: gh workflow run JDC-AX1800-PRO-NOWIFI.yml --ref "${{ github.ref_name }}"
+          GH_REPO: ${{ github.repository }}
+        run: gh workflow run JDC-AX1800-PRO-NOWIFI.yml --repo "${{ github.repository }}" --ref "${{ github.ref_name }}"
