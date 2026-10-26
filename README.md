@@ -41,7 +41,7 @@ Click the badge below to download firmware for your device.
 - **Kernel-space & user-space VPN ready:**
   - **WireGuard:** `kmod-wireguard`, `wireguard-tools`, and `luci-proto-wireguard` pre-installed.
   - **TUN device (`/dev/net/tun`):** `kmod-tun` is pre-installed in the firmware and shipped in `Packages.tar.gz`, enabling user-space VPNs such as Tailscale, ZeroTier, EasyTier, and OpenVPN out of the box ([#5](https://github.com/miyukowo/libwrt-jdc-ax1800-pro/issues/5)).
-- **Included LuCI apps & networking tools:** `luci-app-mwan3`, `luci-app-argon-config` (Argon theme), `luci-app-package-manager`, `luci-app-ttyd`, `luci-app-vnstat2`, `watchcat`, `kmod-tcp-bbr`, plus comprehensive USB Ethernet (`r8152`, ASIX, Aquantia, CDC/RNDIS, iPhone USB tethering) and USB-Serial drivers.
+- **Included LuCI apps & networking tools:** `luci-app-mwan3`, `luci-app-argon-config` (Argon theme), `luci-app-package-manager`, `luci-app-ttyd`, `luci-app-vnstat2`, `watchcat`, `zram-swap` (ZSTD compressed RAM swap), `kmod-tcp-bbr`, plus comprehensive USB Ethernet (`r8152`, ASIX, Aquantia, CDC/RNDIS, iPhone USB tethering) and USB-Serial drivers.
 - **Patched `dnsmasq` DNS hijack:** Supports `option dns_redirect_port` so DNS hijacking works properly even when `dnsmasq`'s own DNS listener is disabled (`port=0`) in favor of AdGuard Home or Pi-hole.
 - **Package manager:** Base system uses `apk` (not `opkg`), signed with the ImmortalWrt `openwrt-25.12` / `immortalwrt-25.12` release keys.
 
