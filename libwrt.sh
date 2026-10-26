@@ -1,10 +1,6 @@
 #!/bin/bash
 set -e
 
-rm -rf package/emortal/luci-app-athena-led
-git clone --depth=1 https://github.com/NONGFAH/luci-app-athena-led package/luci-app-athena-led
-chmod +x package/luci-app-athena-led/root/etc/init.d/athena_led package/luci-app-athena-led/root/usr/sbin/athena-led
-
 # --- Fix: DNSMASQ HIJACK rule redirects to the wrong port when dnsmasq's
 # DNS listener is disabled (port=0) in favor of a replacement DNS server
 # (e.g. AdGuard Home, Pi-hole). The hijack rule must redirect to the port

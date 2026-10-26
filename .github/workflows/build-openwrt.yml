@@ -28,11 +28,6 @@ on:
         description: "Short firmware description for release body"
         required: true
         type: string
-      install_extra_packages:
-        description: "Whether to install extra packages (netspeedtest)"
-        required: false
-        default: false
-        type: boolean
       kernel_version_file:
         description: "Kernel version file to grep (e.g. kernel-6.12). Leave empty to extract from manifest."
         required: false
@@ -174,12 +169,6 @@ jobs:
       run: |
         cd $OPENWRT_PATH
         ./scripts/feeds update -a
-        if [ "${{ inputs.install_extra_packages }}" = "true" ]; then
-          git clone --depth 1 https://github.com/sbwml/openwrt_pkgs.git package/new/custom
-          mv package/new/custom/luci-app-netspeedtest package/new
-          mv package/new/custom/speedtest-cli package/new
-          rm -rf package/new/custom
-        fi
         ./scripts/feeds install -a
 
     - name: Load Custom Configuration
@@ -221,7 +210,7 @@ jobs:
       if: steps.compile.outputs.status == 'success'
       uses: actions/upload-artifact@v4
       with:
-        name: ${{ env.SOURCE_REPO }}-bin-${{ env.DEVICE_TARGET }}-${{ env.DEVICE_SUBTARGET }}-${{ env.FILE_DATE }}
+        name: ${{ env.SOURCE_REPO }}-bin-${{ inputs.firmware_tag }}-${{ env.FILE_DATE }}
         path: ${{ env.OPENWRT_PATH }}/bin
 
     - name: Organize Files
@@ -249,7 +238,7 @@ jobs:
       if: steps.compile.outputs.status == 'success'
       uses: actions/upload-artifact@v4
       with:
-        name: ${{ env.SOURCE_REPO }}-firmware-${{ env.DEVICE_TARGET }}-${{ env.DEVICE_SUBTARGET }}-${{ env.FILE_DATE }}
+        name: ${{ env.SOURCE_REPO }}-firmware-${{ inputs.firmware_tag }}-${{ env.FILE_DATE }}
         path: ${{ env.FIRMWARE_PATH }}
 
     - name: Extract Short Commit Hash
@@ -260,7 +249,7 @@ jobs:
       uses: ncipollo/release-action@v1
       with:
         name: R${{ env.FILE_DATE }}-${{ env.SHORT_HASH }} for ${{ inputs.firmware_tag }}
-        allowUpdates: false
+        allowUpdates: true
         tag: ${{ env.FILE_DATE }}-${{ env.SHORT_HASH }}-${{ inputs.firmware_tag }}
         token: ${{ secrets.GITHUB_TOKEN }}
         artifacts: ${{ env.FIRMWARE_PATH }}/*

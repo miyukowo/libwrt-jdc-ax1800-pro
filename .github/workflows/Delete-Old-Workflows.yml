@@ -5,17 +5,21 @@ on:
   schedule:
     - cron: 0 5 1 * *
 
+permissions:
+  contents: write
+  actions: write
+
 jobs:
   Cleaning:
-    runs-on: ubuntu-22.04
+    runs-on: ubuntu-latest
 
     steps:
     - name: Delete Old Workflows
       uses: Mattraks/delete-workflow-runs@v2
       with:
         token: ${{ secrets.GITHUB_TOKEN }}
-        retain_days: 2
-        keep_minimum_runs: 0
+        retain_days: 14
+        keep_minimum_runs: 3
 
     - name: Delete Old Releases
       uses: dev-drprasad/delete-older-releases@v0.3.4

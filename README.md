@@ -34,10 +34,16 @@ Click the badge below to download firmware for your device.
 ---
 
 ## Firmware Highlights [![](https://img.shields.io/badge/-What's_Included-FFFFFF.svg)](#firmware-highlights-)
-- Full NSS hardware offload (`kmod-qca-nss-drv*`, `kmod-qca-nss-ecm`, `kmod-qca-nss-crypto`) — PPPoE, L2TP, GRE, VLAN and IPsec/crypto are hardware-accelerated on the ipq60xx NSS cores.
-- `luci-app-passwall` bundled with Xray, sing-box, Shadowsocks-rust (client+server), V2ray plugin/geoview, Simple-obfs, HAProxy.
-- `luci-app-mwan3`, `luci-app-argon-config` (Argon theme), `luci-app-package-manager`, `luci-app-ttyd`, `luci-app-vnstat2`.
-- Base system uses `apk` (not `opkg`), signed with the ImmortalWrt `openwrt-25.12` / `immortalwrt-25.12` release keys.
+- **Full NSS hardware offload** (`kmod-qca-nss-drv*`, `kmod-qca-nss-ecm`, `kmod-qca-nss-crypto`, `kmod-qca-nss-dp`) — PPPoE, L2TP, PPTP, GRE, VLAN, bridge, MAP-T, 6rd/DS-Lite, and crypto are hardware-accelerated on the `ipq60xx` NSS cores.
+- **Two build variants:**
+  - **WiFi (`JDC-AX1800-PRO-IPQ60XX-6.12-WIFI`):** Includes `ath11k` + NSS WiFi offload/mesh and `dawn` (802.11k/v/r roaming).
+  - **NoWiFi (`JDC-AX1800-PRO-IPQ60XX-6.12-NOWIFI`):** Pure wired router build with `ath11k`, `mac80211`/`cfg80211`, `wpad`, and wireless firmwares completely stripped out for lower memory footprint.
+- **Kernel-space & user-space VPN ready:**
+  - **WireGuard:** `kmod-wireguard`, `wireguard-tools`, and `luci-proto-wireguard` pre-installed.
+  - **TUN device (`/dev/net/tun`):** `kmod-tun` is pre-installed in the firmware and shipped in `Packages.tar.gz`, enabling user-space VPNs such as Tailscale, ZeroTier, EasyTier, and OpenVPN out of the box ([#5](https://github.com/miyukowo/libwrt-jdc-ax1800-pro/issues/5)).
+- **Included LuCI apps & networking tools:** `luci-app-mwan3`, `luci-app-argon-config` (Argon theme), `luci-app-package-manager`, `luci-app-ttyd`, `luci-app-vnstat2`, `watchcat`, `kmod-tcp-bbr`, plus comprehensive USB Ethernet (`r8152`, ASIX, Aquantia, CDC/RNDIS, iPhone USB tethering) and USB-Serial drivers.
+- **Patched `dnsmasq` DNS hijack:** Supports `option dns_redirect_port` so DNS hijacking works properly even when `dnsmasq`'s own DNS listener is disabled (`port=0`) in favor of AdGuard Home or Pi-hole.
+- **Package manager:** Base system uses `apk` (not `opkg`), signed with the ImmortalWrt `openwrt-25.12` / `immortalwrt-25.12` release keys.
 
 ---
 
@@ -52,7 +58,7 @@ Builds from this branch use `apk` for package management. A few things to know b
 
 ## Custom Build [![](https://img.shields.io/badge/-How_To_Compile-FFFFFF.svg)](#custom-build-)
 1. Log in to GitHub and fork this project into your own repo.
-2. Edit the corresponding file under the `configs` directory to add/remove packages, or upload your own `.config` file.
+2. Edit the minimal seed config files under the `configs` directory (`jdc-ax1800-pro-wifi.config` or `jdc-ax1800-pro-nowifi.config`) to add/remove packages, or upload your own `.config` file (`make defconfig` will automatically expand all dependencies during build).
 3. For plugin names & features, refer to this guide: [Applications Plugin Notes](https://www.right.com.cn/forum/thread-3682029-1-1.html).
 4. Modify `libwrt.sh` if you want to add custom packages or adjustments.
 5. Edit or add the `xx.yml` workflow file, then trigger the desired `Actions` workflow to start building.

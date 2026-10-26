@@ -18,21 +18,20 @@ on:
 
 permissions:
   contents: read
-  actions: read
+  actions: write
 
 jobs:
-  JDC-AX1800-PRO:
-    if: ${{ github.event_name == 'schedule' || inputs.jdc_ax1800_pro_wifi }}
-    uses: ./.github/workflows/JDC-AX1800-PRO.yml
-    secrets: inherit
-    permissions:
-      contents: write
-      actions: write
+  trigger:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Trigger JDC-AX1800-PRO (WiFi)
+        if: ${{ github.event_name == 'schedule' || inputs.jdc_ax1800_pro_wifi }}
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: gh workflow run JDC-AX1800-PRO.yml --ref "${{ github.ref_name }}"
 
-  JDC-AX1800-PRO-NOWIFI:
-    if: ${{ github.event_name == 'schedule' || inputs.jdc_ax1800_pro_nowifi }}
-    uses: ./.github/workflows/JDC-AX1800-PRO-NOWIFI.yml
-    secrets: inherit
-    permissions:
-      contents: write
-      actions: write
+      - name: Trigger JDC-AX1800-PRO-NOWIFI
+        if: ${{ github.event_name == 'schedule' || inputs.jdc_ax1800_pro_nowifi }}
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: gh workflow run JDC-AX1800-PRO-NOWIFI.yml --ref "${{ github.ref_name }}"
