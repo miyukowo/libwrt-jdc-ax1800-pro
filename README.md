@@ -53,7 +53,6 @@ The `gemini` branch validates the final config, selected RE-SS-01 sysupgrade
 image, kernel ABI, APKs and `Packages.tar.gz` before publication. Releases include
 `build-validation.json` with the CI branch/commit and upstream revision. Select
 `gemini` for a test build; builds of an older `main` do not inherit these changes.
-See the [investigation, validation details and post-flash checklist](docs/tun-zram-investigation.md).
 
 ## Known apk Feed Limitations [![](https://img.shields.io/badge/-Read_Before_Reporting_Issues-FFFFFF.svg)](#known-apk-feed-limitations-)
 Builds from this branch use `apk` for package management. A few things to know before you run `apk update`/`apk upgrade`:
