@@ -21,5 +21,6 @@ jobs:
       config_file: "configs/jdc-ax1800-pro-wifi.config"
       diy_script: "libwrt.sh"
       firmware_tag: "JDC-AX1800-PRO-IPQ60XX-6.12-WIFI"
+      firmware_variant: "WIFI"
       firmware_description: "6.12 kernel firmware with WIFI + Wired NSS support"
       kernel_version_file: "kernel-6.12"

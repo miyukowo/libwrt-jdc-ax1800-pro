@@ -24,6 +24,10 @@ on:
         description: "Firmware tag for release naming"
         required: true
         type: string
+      firmware_variant:
+        description: "Validated package policy (WIFI or NOWIFI)"
+        required: true
+        type: string
       firmware_description:
         description: "Short firmware description for release body"
         required: true
@@ -176,18 +180,33 @@ jobs:
         CONFIG_FILE: ${{ inputs.config_file }}
         DIY_SCRIPT: ${{ inputs.diy_script }}
       run: |
-        [ -e files ] && mv files $OPENWRT_PATH/files
-        [ -e "$CONFIG_FILE" ] && mv "$CONFIG_FILE" $OPENWRT_PATH/.config
-        if [ -n "$DIY_SCRIPT" ] && [ -e "$DIY_SCRIPT" ]; then
+        if [ -d files ]; then
+          mkdir -p "$OPENWRT_PATH/files"
+          cp -a files/. "$OPENWRT_PATH/files/"
+        fi
+        cp "$CONFIG_FILE" "$OPENWRT_PATH/.config"
+        cp "$CONFIG_FILE" "$OPENWRT_PATH/config.requested"
+        if [ -n "$DIY_SCRIPT" ]; then
+          test -f "$DIY_SCRIPT"
           chmod +x "$DIY_SCRIPT"
           cd $OPENWRT_PATH
           "$GITHUB_WORKSPACE/$DIY_SCRIPT"
         fi
 
+    - name: Resolve and Validate Final Configuration
+      shell: bash
+      env:
+        FIRMWARE_VARIANT: ${{ inputs.firmware_variant }}
+      run: |
+        cd "$OPENWRT_PATH"
+        make defconfig
+        python3 "$GITHUB_WORKSPACE/scripts/validate-firmware.py" config \
+          --tree "$OPENWRT_PATH" --variant "$FIRMWARE_VARIANT" \
+          --requested "$OPENWRT_PATH/config.requested" 2>&1 | tee validation-config.log
+
     - name: Download DL Packages
       run: |
-        cd $OPENWRT_PATH
-        make defconfig
+        cd "$OPENWRT_PATH"
         make download -j$(nproc)
         find dl -size -1024c -exec ls -l {} \;
         find dl -size -1024c -exec rm -f {} \;
@@ -206,36 +225,50 @@ jobs:
       if: (!cancelled())
       run: df -hT
 
-    - name: Upload Bin Directory
+    - name: Validate Built Firmware
       if: steps.compile.outputs.status == 'success'
+      shell: bash
+      env:
+        FIRMWARE_VARIANT: ${{ inputs.firmware_variant }}
+      run: |
+        KERNEL_DIR="$(make --no-print-directory -s -C "$OPENWRT_PATH/target/linux" TOPDIR="$OPENWRT_PATH" val.LINUX_DIR)"
+        python3 "$GITHUB_WORKSPACE/scripts/validate-firmware.py" artifacts \
+          --tree "$OPENWRT_PATH" --variant "$FIRMWARE_VARIANT" \
+          --kernel-dir "$KERNEL_DIR" 2>&1 | tee "$OPENWRT_PATH/validation-artifacts.log"
+
+    - name: Organize Files
+      id: validate_release
+      if: steps.compile.outputs.status == 'success'
+      shell: bash
+      env:
+        FIRMWARE_VARIANT: ${{ inputs.firmware_variant }}
+      run: |
+        cd "$OPENWRT_PATH/bin/targets/qualcommax/ipq60xx"
+        cat sha256sums
+        VERSION_KERNEL="$(python3 -c 'import json; print(json.load(open("profiles.json"))["linux_kernel"]["version"])')"
+        echo "VERSION_KERNEL=$VERSION_KERNEL" >> "$GITHUB_ENV"
+        cp "$OPENWRT_PATH/.config" build.config
+        cp "$OPENWRT_PATH/config.requested" config.requested
+        cp "$OPENWRT_PATH/validation-config.log" "$OPENWRT_PATH/validation-artifacts.log" .
+        python3 "$GITHUB_WORKSPACE/scripts/validate-firmware.py" archive \
+          --tree "$OPENWRT_PATH" --variant "$FIRMWARE_VARIANT" 2>&1 | tee validation-archive.log
+        # The report includes branch, CI/source commits, effective config and archive hashes.
+        # Keep build output APKs intact. Release APKs are inside Packages.tar.gz.
+        rm -f feeds.buildinfo version.buildinfo
+        mkdir -p "$OPENWRT_PATH/release"
+        find . -maxdepth 1 -type f ! -name '.*' -exec cp -t "$OPENWRT_PATH/release" -- {} +
+        echo "FIRMWARE_PATH=$OPENWRT_PATH/release" >> "$GITHUB_ENV"
+        echo "status=success" >> "$GITHUB_OUTPUT"
+
+    - name: Upload Bin Directory
+      if: steps.validate_release.outputs.status == 'success'
       uses: actions/upload-artifact@v4
       with:
         name: ${{ env.SOURCE_REPO }}-bin-${{ inputs.firmware_tag }}-${{ env.FILE_DATE }}
         path: ${{ env.OPENWRT_PATH }}/bin
 
-    - name: Organize Files
-      if: steps.compile.outputs.status == 'success'
-      run: |
-        cd $OPENWRT_PATH/bin/targets/*/*
-        cat sha256sums
-        # Extract kernel version from manifest if not already set
-        if [ "$VERSION_KERNEL" = "extracted-after-build" ]; then
-          VERSION_KERNEL=$(find -type f -name "*.manifest" -exec grep -oP '^kernel - \K.*?(?=~|-\d+-)' {} \; || echo "unknown")
-          echo "VERSION_KERNEL=$VERSION_KERNEL" >> $GITHUB_ENV
-        fi
-        cp $OPENWRT_PATH/.config build.config
-        # Handle both .apk and .ipk package formats
-        if ls $OPENWRT_PATH/bin/packages/*/*/*.apk 1>/dev/null 2>&1; then
-          mv -f $OPENWRT_PATH/bin/packages/*/*/*.apk packages
-        elif ls $OPENWRT_PATH/bin/packages/*/*/*.ipk 1>/dev/null 2>&1; then
-          mv -f $OPENWRT_PATH/bin/packages/*/*/*.ipk packages
-        fi
-        tar -zcf Packages.tar.gz packages
-        rm -rf packages feeds.buildinfo version.buildinfo
-        echo "FIRMWARE_PATH=$PWD" >> $GITHUB_ENV
-
     - name: Upload Firmware To Artifact
-      if: steps.compile.outputs.status == 'success'
+      if: steps.validate_release.outputs.status == 'success'
       uses: actions/upload-artifact@v4
       with:
         name: ${{ env.SOURCE_REPO }}-firmware-${{ inputs.firmware_tag }}-${{ env.FILE_DATE }}
@@ -245,7 +278,7 @@ jobs:
       run: echo "SHORT_HASH=$(git rev-parse --short HEAD)" >> $GITHUB_ENV
 
     - name: Release Firmware
-      if: steps.compile.outputs.status == 'success'
+      if: steps.validate_release.outputs.status == 'success'
       uses: ncipollo/release-action@v1
       with:
         name: R${{ env.FILE_DATE }}-${{ env.SHORT_HASH }} for ${{ inputs.firmware_tag }}
@@ -263,6 +296,9 @@ jobs:
           - 💻 Platform: ${{ inputs.firmware_tag }}
           - ⚽ Firmware source: ${{ inputs.repo_url }}
           - 💝 Source branch: ${{ inputs.repo_branch }}
+          - CI branch/ref: `${{ github.ref }}`
+          - CI commit: `${{ github.sha }}`
+          - Package policy: `${{ inputs.firmware_variant }}` (see `build-validation.json`)
           - 🌐 Default address: 192.168.1.1
           - 🔑 Default password: password
 

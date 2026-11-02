@@ -1,0 +1,41 @@
+name: Validate Build Scripts
+
+on:
+  push:
+    paths:
+      - '.github/workflows/**'
+      - 'configs/**'
+      - 'files/**'
+      - 'scripts/**'
+      - 'tests/**'
+      - 'libwrt.sh'
+  pull_request:
+    paths:
+      - '.github/workflows/**'
+      - 'configs/**'
+      - 'files/**'
+      - 'scripts/**'
+      - 'tests/**'
+      - 'libwrt.sh'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  validate:
+    runs-on: ubuntu-22.04
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - name: Install SquashFS fixture tools
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y squashfs-tools python3-yaml
+      - name: Check shell syntax
+        run: |
+          bash -n libwrt.sh
+          sh -n files/etc/uci-defaults/90-zram-zstd
+      - name: Run validator regression fixtures
+        run: python3 -m unittest discover -s tests -v

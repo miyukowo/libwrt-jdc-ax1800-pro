@@ -1,0 +1,7 @@
+#!/bin/sh
+# zram.init reads UCI, independently of the kernel's default compressor.
+# S10boot applies uci-defaults before S15zram starts swap. Only set the algorithm;
+# keep upstream sizing/priority and the router's other system settings.
+uci -q get 'system.@system[0]' >/dev/null || exit 1
+uci set 'system.@system[0].zram_comp_algo=zstd' || exit 1
+uci commit system
