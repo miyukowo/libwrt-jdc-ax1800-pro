@@ -224,7 +224,13 @@ def extract_rootfs(image, temp):
         with archive.extractfile(roots[0]) as source, squashfs.open('wb') as dest:
             shutil.copyfileobj(source, dest)
     root = temp / 'root'
-    subprocess.run(['unsquashfs', '-no-progress', '-d', str(root), str(squashfs)], check=True)
+    # Inspect only the files used below. Extracting /dev/console requires
+    # mknod privileges unavailable on Actions runners. Xattrs are irrelevant
+    # to these content/mode/symlink checks and may also require privileges.
+    paths = ('lib/apk/db/installed', 'lib/modules', 'etc/modules.d',
+             'etc/init.d/zram', 'etc/rc.d', ZRAM_DEFAULTS)
+    subprocess.run(['unsquashfs', '-no-progress', '-no-xattrs', '-d', str(root),
+                    str(squashfs), *paths], check=True)
     return root
 
 
